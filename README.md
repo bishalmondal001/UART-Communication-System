@@ -1,2 +1,2 @@
 # UART-Communication-System
-Implemented a UART transmitter &amp; receiver with variable baud rate in Register Transfer Level using Verilog, clock is fixed.
+Implemented a **UART transmitter** & **receiver** with **variable baud rate** in  **Verilog**, **clock is fixed**.
