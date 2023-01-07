@@ -1,0 +1,114 @@
+      //Here is the module for UART Transmitter . 
+     //we are Transmitting 8 bit data with one bit start bit and one bit stop bit, total 10 bit data
+    //start bit= "0"
+   //stop bit="1"
+  //we are not sending any Parity Bit. 
+ //Here the clock is Fixed and it's frequency=100MHz and Time period=10ns.
+//baud rate is variable . 
+
+//UART_TX module started
+module UART_TX (input clk,                        //clock
+                input  [7:0] in_data,            //8 bit input data that needs to be transmitted
+                input [9:0] clocks_per_bit,     //total no. of clock cycle needed for one bit data transfer
+                input D_status,                //this gives a signal(i.e. become 1) that input data is entered in the device and transfer process started
+                output reg TX,                //this is the TX output that transfers the input data bit by bit  serially
+                output D_TX_done);           //this gives signal(i.e. become 1) when data transfer completed
+   //TX module ports are declared 
+  
+  parameter empty =3'b000;
+  parameter start_bit = 3'b001;
+  parameter data_bits =3'b010;
+  parameter stop_bit=3'b011;
+  //this are the four states that are used in the FSM
+  
+  reg [2:0] state=0;            //represents FSM states with corresponding binary values
+  reg [15:0] clock_count=0;    //counts total number of clock cycle
+  reg [2:0] bit_index=0;      
+  reg [7:0] TX_data=0;       //temporarily stores 8 bit input data
+  reg r_D_TX_done;          //temporariliy works as D_TX_done
+  //this are some registers which has important uses in next part 
+  
+  always @(posedge clk)                   
+    begin
+      case (state)               //case statement for "state" starts
+        empty:                  
+          begin                    //it is our primary state  "empty" state.Untill we get favourable conditions to change state , we will be in this state.                 
+            TX=1;                 //the "TX" will always be high indicating stop bit 
+            clock_count=0;
+            bit_index=0;
+            r_D_TX_done=0;        //though stop bit is there but as r_D_TX_done is low , it's indicates no data transmission  
+            if(D_status==1)       
+              begin                  //now if D_status becomes high, it will indicate data transmition started 
+                TX_data=in_data;    //then the 8 bit input data will be moved to the register "TX_data" temporaririly 
+                state=start_bit;   //we will move to "start_bit " state 
+              end
+            else
+              state=empty;       //otherwiae we will continue in "empty"state 
+          end
+        
+        start_bit:               
+          begin      //"state_bit" state will start here 
+            TX=0;    //"TX" will become low here and start bit=0 will be transmitted 
+            if(clock_count<(clocks_per_bit-1))      
+              begin                        //if total no. of clock cycles needed per bit does not completed  
+                clock_count=clock_count+1; //then "clock_count" increments 
+                state=start_bit;           //state continues in "start_bit" state  
+              end
+            else
+              begin                    //Otherwise                   
+                clock_count=0;        //"clock_count" becomes "0"           
+                state=data_bits;     //and we move to "data_bits"
+              end
+          end
+        
+        data_bits:
+          begin          //"data_bits" state starts here 
+            TX=TX_data[bit_index];      //"TX" transfer the input data bit by bit and "bit_index" indicates  the  bit position    
+            if(clock_count<(clocks_per_bit-1))
+              begin                         //if total no. of clock cycles needed per bit does not completed   
+                clock_count=clock_count+1;  //then "clock_count" increments 
+                state=data_bits;            //state continues in "data_bits" state  
+              end
+            else
+              begin                 //otherwise 
+                clock_count=0;     //clock_count becomes zeo  
+                if(bit_index<7)   //but if bit_index is less than 7
+                  begin          
+                    bit_index=bit_index+1;   //bit_index increments  
+                    state=data_bits;        //state continues to be in "data_bits" state
+                  end
+                else
+                  begin            //else
+                    bit_index=0;             //bit_index becomes zero
+                    state=stop_bit;         //we move to "stop_bit" state
+                  end
+              end
+          end
+        
+        stop_bit: 
+          begin      //"stop_bit' state starts here
+            TX=1;    // "TX" becomes high and stop bit=1 is transmitted
+            if(clock_count<(clocks_per_bit-1))    
+              begin                          //if total no. of clock cycles needed per bit does not completed  
+                clock_count=clock_count+1;  //then "clock_count" increments 
+                state=stop_bit;            //state continues in "stop_bit" state  
+              end
+            else
+              begin                  //otherwise 
+                r_D_TX_done=1;       //our" r_D_TX_done" becomes high , indicating data transmission completed
+                clock_count=0;       
+                state=empty;         //state gets back  to "empty" state 
+                
+              end
+          end
+        
+        default:
+          state=empty;  //default case state is "empty"
+        
+      endcase
+    end
+  
+  assign D_TX_done=r_D_TX_done; //"r_D_TX_done" is assigned to main output variable "D_TX_done"
+  
+endmodule  
+//"uart_TX" module ends here

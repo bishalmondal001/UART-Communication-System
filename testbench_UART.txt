@@ -1,0 +1,66 @@
+//Testbench for UART module
+//Here the clock is Fixed and it's frequency=100MHz and Time period=10ns.
+
+`include "UART_RX.v"      //we need to include "UART_RX.v" file 
+`timescale 1ns/10ps       //timescale defined
+
+module t_UART();           //Testbench module started     
+  
+  reg clk=0;
+  reg  [9:0] clocks_per_bit;
+  
+  
+  reg D_status;
+  reg [7:0] in_data;
+  wire TX;
+  wire D_TX_done;
+  
+  
+  UART_TX UT (.clk(clk),.in_data(in_data),.clocks_per_bit(clocks_per_bit),.D_status(D_status),.TX(TX),.D_TX_done(D_TX_done));       //UART_TX module has instantiated
+  
+  
+  reg  RX;
+  wire D_RX_done;
+  wire [7:0] out_data;
+  
+  
+  UART_RX UR (.clk(clk),.RX(RX),.clocks_per_bit(clocks_per_bit),.D_RX_done(D_RX_done),.out_data(out_data));         //UART_RX module has instantiated
+  
+  parameter clock_freq=100000000;       // frequency of clock 100MHz
+  parameter T_clock=10;                //time period of clock 10ns
+ //has declared as constant parameter
+  
+  integer  baud_rate;                 //input for baud rate
+  integer transition_time;           //input for data transmission time
+  //has declared as integer variable
+  
+  always #(T_clock/2) clk=~clk;        //clock has declared
+  
+  assign RX =D_status?  TX : 1;     //through this conditional assignment "TX" and "RX" are connected
+  
+  
+  initial
+    begin
+      baud_rate=9600;                           //"baud_rate" input is given
+      transition_time=17615;                   //"transition_time" input is given
+      clocks_per_bit=clock_freq/baud_rate;    //input for "clocks_per_bit" has defined
+      
+      $dumpfile("dump.vcd");
+      $dumpvars(0,t_UART);
+      
+      D_status=1;        //D_status become high , indicating data transfer has started
+      in_data=8'hab;    //data input is given
+      #transition_time D_status=0;    //after transition_time D_status will become low , indicating no  more data transfer
+      $display("Recieved Data after 1st Transition = %h ",out_data);
+      //received data will be displayed
+      
+      
+      #transition_time D_status=1;   //again D_status become high , indicating data transfer has started
+      in_data=8'hcd;                //data input is given
+      #transition_time D_status=0;  //after transition_time D_status will become low , indicating no  more data transfer
+      $display("Recieved Data after 2nd Transition  = %h ",out_data);
+      //received data will be displayed
+      
+      #10000 $finish;    //simulation will end then
+    end
+   

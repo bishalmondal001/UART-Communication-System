@@ -1,0 +1,109 @@
+      //Here is the module for UART Reciever . 
+     //we are going to receive 10 bit data including  one bit start bit and one bit stop bit.
+    //then we will extract the 8 bit main data 
+
+//UART_RX module started
+module UART_RX (input clk,                      //clock
+                input RX,                     //RX port recieves the transmitted data bit by bit     
+                input  [9:0]clocks_per_bit,    //total no. of clock cycle needed for one bit data transfer
+                output D_RX_done,            //this gives signal(i.e. become 1) when data transfer completed
+                output reg [7:0] out_data); //main output that gives the 8 bit data
+     //RX module ports are declared 
+
+  parameter empty =3'b000;
+  parameter start_bit = 3'b001;
+  parameter data_bits =3'b010;
+  parameter stop_bit=3'b011;
+  //this are the four states that are used in the FSM  
+  
+  reg [2:0] state=0;                  //represents FSM states with corresponding binary values
+  reg [15:0] clock_count=0;          //counts total number of clock cycle
+  reg [2:0] bit_index=0;
+  reg [7:0] RX_data;                //temporarily stores 8 bit transmitted data
+  reg r_D_RX_done=0;               //temporariliy works as D_RX_done
+  //this are some registers which has important uses in next part 
+  
+  always @(posedge clk)
+  begin
+    case(state)           //case statement for "state" starts
+      empty:                                        
+        begin //it is our primary state  "empty" state.Untill we get favourable conditions to change state , we will be in this state.
+          r_D_RX_done=0;
+          if(RX==0)                   
+              begin                   //now if "RX" becomes high, i.e. start bit=0 is detected 
+                state<=start_bit;    //we move to "start_bit" state
+              end
+            else
+              state<=empty;        //otherwise cotinue on "empty" state
+        end
+      
+      start_bit:
+        begin          //"state_bit" state will start here 
+          if(clock_count==((clocks_per_bit-1)/2))               
+           begin                           //now through this condition ,on satisfying  we will look in the absolute middle of a bit transfer
+             if(RX==0)              
+              begin                  //then also if start bit is detected, i.e."RX" receives start bit=0 
+                clock_count=0;      //'clock_count" becomes zero
+                state=data_bits;   // we will move to "data_bits" state
+              end
+             else
+              begin              //else
+              state=empty;      //we will continue in "empty" state
+              end
+           end
+         else
+              begin                           //now if we have not reached to the middle of a bit transfer 
+                clock_count=clock_count+1;   //"clock_count" increments
+                state=start_bit;            //we will continue in "start_bit" state
+              end
+        end
+           
+      data_bits:
+        begin    //"data_bits" state will start here 
+          if(clock_count< (clocks_per_bit-1))
+            begin                              //if total no. of clock cycles needed per bit does not completed   
+              clock_count=clock_count+1;      //then "clock_count" increments 
+              state=data_bits;               //state continues in "data_bits" state  
+            end
+          else
+            begin                         //otherwise          
+              clock_count=0;             //clock_count becomes zeo  
+              RX_data[bit_index]=RX;    //"RX_data" receives the transmitted data bit by bit and "bit_index" indicates the position  
+              if(bit_index<7)      
+                begin                     //but if "bit_index" is less than 7 
+                  bit_index=bit_index+1; //bit_index increments  
+                  state=data_bits;       //state continues to be in "data_bits" state
+                end
+              else
+                begin                //else
+                  bit_index=0;      //bit_index becomes zero
+                  state=stop_bit;  //we move to "stop_bit" state
+                end
+            end
+        end
+
+      stop_bit:
+        begin                //"stop_bit' state starts here
+          if(clock_count<(clocks_per_bit-1))
+            begin                          //if total no. of clock cycles needed per bit does not completed 
+              clock_count= clock_count+1; //then "clock_count" increments 
+              state=stop_bit;            //state continues in "stop_bit" state  
+            end
+          else
+            begin                 //otherwise 
+              clock_count=0;
+              r_D_RX_done=1;     //our "r_D_RX_done" becomes high , indicating data receiving completed
+              state=empty;      //state gets back  to "empty" state 
+            end
+        end
+
+      default:
+        state=empty;        //default case state is "empty"
+      
+    endcase
+  end
+  assign D_RX_done=r_D_RX_done;     //"r_D_RX_done" is assigned to main output variable "D_TX_done"
+  assign out_data=RX_data;         //"RX_data" is assigned to main output for 8 bit data "out_data"
+  
+endmodule   
+//"uart_RX" module ended here      
